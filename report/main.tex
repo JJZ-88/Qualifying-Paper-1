@@ -1,0 +1,227 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Template for STAT 548 Qualifying Paper Report
+% Author: Ben Bloem-Reddy <benbr@stat.ubc.ca>
+% Revised: Daniel J. McDonald <daniel@stat.ubc.ca>
+% Date: 26 August 2024
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Note: You will get an empty bibliography warning when compiling until you include a citation.
+
+\documentclass[12pt]{article}
+\usepackage[commenters={OA,DJM}]{shortex} % replace OA with your initials
+\usepackage[round]{natbib}
+\usepackage[margin=2.5cm]{geometry}
+\newcommand{\email}[1]{\href{mailto:#1}{#1}}
+
+% minor adjustments to ShorTeX
+\let\argmin\relax\DeclareMathOperator*{\argmin}{argmin}
+\let\argmax\relax\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\minimize}{minimize}
+\DeclareMathOperator*{\maximize}{maximize}
+\DeclareMathOperator{\subjto}{\ \text{subject to}\ }
+\renewcommand{\top}{\mathsf{T}}
+\renewcommand{\d}{\mathsf{d}}
+
+\graphicspath{{fig/}}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% your title/author/date information go here
+\title{\LaTeX\ Template for STAT 548 Qualifying Paper Report} % replace with your title, a meaningful title
+\author{Daniel J. McDonald} % replace with your name
+\date{\today} % replace with your submission date
+
+
+% start of document
+\begin{document}
+\maketitle
+
+You can remove everything from here to the end of the document when you start
+writing your report.
+
+But do read through it first to get an idea of how to use the style file and 
+some best practices for writing the report.
+
+\section{Requirements}\label{sec:req}
+
+As described on my website
+\url{https://dajmcdon.github.io/teaching/stat548.html}, the report should
+contain three main sections:
+
+\bdesc
+\item[1. Summary ($\sim$3 pages)] The first section of the report should provide a
+summary of the paper and the problem(s) it addresses, including its relationship
+to any previous work, its major contributions (e.g., novel techniques,
+algorithmic developments, problem formulations, theoretical contributions), and
+any limitations or shortcomings (e.g., restrictive assumptions, computational
+constraints, flawed methodology). The aim of this section is for you to
+synthesize the findings of a body of work and clearly present the important
+points.
+
+\item[2. Mini-proposal(s) for research projects] Each proposal should describe a
+research project that applies, extends, generalizes, adapts, or addresses
+shortcomings of the QP. Seemingly unrelated ideas inspired by the original QP
+are also fine. You may write more than one proposal, but you must write at least
+one. A proposal should concisely describe: the primary problem to be addressed;
+an approach (or multiple approaches) for addressing the problem; any technical
+or conceptual sub-problems; the potential impact of the project. You are not
+expected to pursue any of these projects (though we can talk more if you would
+like to). The aim of this section is to get you thinking creatively about
+research, and to begin developing the skills necessary for writing research
+proposals. Each proposal should be no more than \textbf{2 pages max}.
+
+\item[3. QP specific project results] Each potential QP listed below has a brief
+description of a related project. We will discuss the project in detail in our
+initial meeting, and we can meet again (as many times as necessary) before the
+report due date. Your grade will not be affected by how good the results look,
+whether your approach improves on past work, or whether you achieve the initial
+goal of the project. I will use this project to evaluate your research 
+potential, which includes (among other aspects):
+  \bitem
+  \item clearly formulating a research question;
+  \item setting up a useful mathematical framework for the problem;
+  \item thinking creatively and independently to develop a solution;
+  \item relating the problem to existing work, in other fields if necessary;
+  \item being resourceful and asking questions when necessary;
+  \item learning from and moving past the inevitable setbacks;
+  \item reformulating the research problem when necessary;
+  \item implementing new methods in code (when applicable);
+  \item choosing appropriate experiments and metrics;
+  \item communicating and reflecting on progress, setbacks, and results;
+  \item thinking of future research directions.
+  \eitem
+\edesc
+
+
+The report should be submitted as a GitHub repository based on the template
+\href{https://github.com/dajmcdon/qp-template}{here}. The template includes a LaTeX
+style file that should be used for the report. (Detailed instructions for usage
+can be found in the repository's README file.) Any experimental/numerical
+results should be reproducible. All code should be reusable, clearly
+commented/documented, and exist in the \texttt{src/} folder of the same GitHub
+repository to which you give me access as a collaborator. Code can be in any
+language you wish, though my strong preference is for \texttt{R} or
+\texttt{python}.
+
+
+The remainder of this document demonstrates the style file and provides some
+best practices for writing the report. 
+
+\section{Introduction}\label{sec:intro}
+
+We write some math for fun:
+
+\[
+\label{eq:1}
+\int_{-\infty}^{\infty} \frac{1}{\sqrt{2\pi}|\Sigma|^{n/2}}
+\exp\cbra*{-\frac{1}{2}(y - \mu)\T \Sigma^{-1} (y-\mu)} \d y = 1.
+\]
+
+We encourage the use of the various macros defined in
+\href{https://github.com/trevorcampbell/shortex/}{ShorTeX},
+so do your best. It makes things easier to read, but also provides lots of
+necessary mathematics definitions that render nicely. 
+
+Be careful with things like KL divergence and conditional probability
+statements. I find that 
+\[\KL(q\ \Vert\ p)\]
+looks much better than 
+\[\KL(q||p),\] 
+and I similarly prefer 
+\[
+Y\ |\ X \sim \Norm(X,\ \sigma^2) 
+\quad\textrm{to}\quad Y | X \sim \Norm(X,\sigma^2).
+\] 
+Note that the reals are $\reals^p$. There is also
+\[
+\shbeta = \argmin_{\beta \in \reals^p} \frac{1}{2n}\norm{\sky - \skX\beta}_2^2 + 
+\lambda \norm{\beta}_1,
+\]
+and (with automatic sizing of the norm),
+\[
+\shbeta = \argmin_{\beta \in \reals^p} \frac{1}{2n}\norm*{\frac{y}{1} - X\beta}_2^2 + 
+\lambda \norm*{\beta}_1.
+\]
+
+Note that the indicator function looks like $\1\{\cdot\}$, but I sometimes
+prefer $\mathbf{1}\{\cdot\}$.
+
+
+
+
+\subsection{Cleveref}\label{sec:clever}
+
+We prefer to use cleveref to get nice references to things. For example, you can
+say that \cref{eq:1} was printed in \cref{sec:intro}. No need to write out
+things like ``Section''.
+
+\section{Some best practices}
+
+Some of these are taken from
+\href{http://faculty.marshall.usc.edu/Jacob-Bien/papers/manuscript-checklist.pdf}{Jacob
+Bien}. Note the use of the ShorTeX itemize environment style below.
+
+\bitem
+\item Section titles should be all title case or all sentence case. Don't mix and match.
+\item I prefer data set to dataset.
+\item I prefer data to be singular. There remains debate on this point. When you
+use the word ``datum'' in a sentence, then we can argue. Data is a mass noun,
+like ``information''. We don't say ``How many data are enough?'', we say ``How much
+data is enough.'' Enough said.  
+\item Terminology is lower case, unless it's a person's name: \Nystrom extension
+and lasso.
+\item Equations are parts of the sentence. Displayed equations almost always
+have a comma or period after. Very rarely is there a colon or comma \emph{before}
+a displayed equation.
+\item Don't start sentences with math (``$\Sigma$ is the covariance of
+$\skX$.'') or the name of a software package that's lowercase, \eg
+``\texttt{glmnet} is my favourite software''.
+\item Don't use contractions.
+\item No need to put dollar signs around numbers: 12 versus $12$.
+\item DO put dollar signs around math: $p$ not p.
+\item Use $x\gg y$ not $x >>y$.
+\item Careful with parentheticals and references. Wrong: (see, \eg
+\citet{Akaike1973}). Right: (see, \eg \citealp{Akaike1973}).
+\item Never use \texttt{eqnarray}, always use \texttt{align}. Note that ShorTeX
+makes \verb+\[   \]+ into an align environment, so you can just use that always.
+\item For editing purposes, it is much better if the text is hard-wrapped rather
+than soft wrapped.
+\eitem
+
+\subsection{Tables}
+
+\Cref{tab:1} is a nice looking table. Strive for these.
+
+\btab
+\bcent
+\btabr{@{}lr@{}}
+\toprule
+Ingredient & Quantity\\
+\midrule
+Fusili & 100 g\\
+Eggs & 2\\
+Salt & 1 tsp\\
+Guanciale & 50 g\\
+Pepper & \nicefrac{1}{2} tsp\\
+Grated parmesan & \nicefrac{1}{4} c\\
+\bottomrule
+\etabr
+\caption{This is a nice looking table. It might make carbonara.}
+\label{tab:1}
+\ecent
+\etab
+
+\section{Discussion} 
+
+We made amazing contributions to the world of musical fractal pasta 
+\citep{McDonald2017,Tibshirani2013}. We use Natbib, so be sure to use
+\citep{Stein1981} for parenthetical references. Or you can say, according to
+\citet{HastieTibshirani2009}, we should strive to balance truth and lies.
+
+
+\bibliographystyle{rss}
+\bibliography{qp.bib}
+
+\end{document}
