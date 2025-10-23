@@ -57,9 +57,9 @@
 
     \subsection{Relevant Theory}
       To start, we define notation. Let $t= 1,2,\dots$ be a sequence of discretized time-steps, which in PTD
-      represents days. Let $I_t$ denote the $\textit{incidence}$ at time $t$, which is the number of new infections.
+      represents days. Let $I_t$ denote the $\textit{incidence of infection}$ (denoted as incidence) at time $t$, which is the number of new infections.
       Call $\{I_1,\dots,I_T\}$ the $\textit {incidence curve}$. 
-      Let $\{w_j\}_{j=0}^\infty$ be the $\textit{generation time distribution}$ (Cori et al., 2013), so that $w_j$ denotes 
+      Let $\{w_j\}_{j=0}^\infty$ be the $\textit{generation time distribution}$, (Cori et al., 2013), so that $w_j$ denotes 
       the probability mass that an infected individual will generate a secondary infection in exactly $j$ days. \\
     
       The $\textit{instantaneous reproduction number}$, $R_t$, measures the mean number of secondary infections generated from each
@@ -149,7 +149,8 @@
       showing that $\hat{r}_t$ has underlying implicit model assumptions, 
       which refutes a major advantage it has over $\hat{R}_t$ (Pellis et al., 2021). 
       In this relation, the coefficients $\alpha_j$ form an arbitrary kernel for each $S_t$ that is similar to the generation time
-      distribution kernel. 
+      distribution kernel. It is worthwile to mention that PTD only show this relation for the SG filter as a smoothing funciton, not for smoothing
+      functions in general.
       Nonetheless, Parag et al. (2022) argue there are benefits to using both statistics in conjuction to 
       model epidemic growth and inform public policy. \\
 
@@ -192,8 +193,8 @@
       The presence of singular events with high transmission possibility, for example festivals and concerts, 
       will cause a jump in daily incidence. Days and seasons with good weather will have more people outdoors, leading to higher
       incidence as well. It may be possible to include a multiplier for total infectiousness for these effects, say 
-      $\Lambda_t = \beta_t \sum_{j=1}^{t-1}I_{t - j}w_j$, where $\lambda_t > 0$ can be estimated from a simple regression model
-      that accounts for outside factors. $\lambda_t$ should be so that values less than 1 correspond to a likely
+      $\Lambda_t = \lambda_t \sum_{j=1}^{t-1}I_{t - j}w_j$, where $\lambda_t > 0$ measures deviation from baseline level of human interaction 
+      and can be estimated from a simple regression model. $\lambda_t$ should be so that values less than 1 correspond to a likely
       increase in infections above average (and vice versa). This is due to $\Lambda_t$ being artificially lowered, 
       and keeping the distributional assumptions on $\mathbb{E}(I_t)$ the same, 
       $R_t$ will be higher than the expeceted rate without accounting for outside factors. Alternatively, the times series
@@ -207,7 +208,8 @@
       This statistic will implicitly account for these changes, but can only be back-calculated as a
       retrospective statistic, as it requires future incidence numbers (Cori et al. 2013). There is also the 
       \textit{Susceptible-Infectious-Recovered} model that groups people into these three categories, but it is often an
-      oversimplication of true epidemic dynamics (Lloyd, 2009). 
+      oversimplication of true epidemic dynamics (Lloyd, 2009).  (TIE THIS BACK TO PAPER)
+
       
       Conceptually, the largest limitation is that PTD never discuss \textit{how} to use $\hat{R}_t, \hat{r}_t$ together to
       understand epidemic dynamics. For a paper who's primary objectives are to clarify the understanding of these statistics, 
@@ -218,8 +220,171 @@
       methods or ideas that can be applied to real-world epidemiological modelling, which is subpar for an applied paper. 
 
   \section{Mini-Proposals}
+      In the previous section, we discussed PTD's claim that the smoothing function assumed to estimate $r_t$ is itself an implicit
+      distributional assumption, which refutes claims that $r_t$ is a better statistic to measure epidemics (Pellis et al., 2021). 
+      The logical next step is to consider whether we can still estimate $r_t$ without the use of any explicit smoothing functions.
+      In this section we propose a method to smooth the parameters $r = (r_1,\dots,r_T)$ directly rather then smoothing the
+      incidence itself (ex. SG filter), thereby estimating $\hat{r} = (\hat{r}_1,\dots,\hat{r}_T)$ without functional assumptions. 
+
+      Recall that the incidence is assumed to come from a Poisson parameter. Previously in the renewal model we took the rate as
+      $\Lambda_t R_t$ (Cori et al., 2013), however since we are no longer applying distributional assumptions we simply
+      use exponential growth, that is $I_t|I_{t-1} \sim \text{Poisson}(I_{t - 1}e^{r_t})$ where the parameter of interest is $r_t$.
+      This is a \textit{Poisson many means model} where each observation $I_t$ has a different rate parameter. We also have 
+      simplifying assumption of independence, which likely does not hold because $I_t$ is explicitly dependent on $I_{t - 1}$.
+      The first naive method of estimation we would consider is to simply take the MLE
+      \begin{align} \label{rt: MLE}
+          (\hat{r}_1^{MLE},\dots,\hat{r}_T^{MLE}) &= \argmax{r \in \mathbb{R}^T} \mathcal{L}(r_1,\dots,r_T ; I_1,\dots,I_T) \\
+          &= \argmax{r \in \mathbb{R}^T} \prod_{t = 2}^T \frac{(I_{t - 1}e^{r_t})^{I_t} e^{-I_{t - 1}e^{r_t}}}{I_t!} \\
+          &= \argmin{r \in \mathbb{R}^T} \sum_{t = 2}^T -[I_t(\log{I_{t - 1}} + r_t) - I_{t - 1}e^{r_t}]
+      \end{align}
+      Deriving in terms of each $r_t, \; t=1,\dots,T$ and setting to 0 gives a set of solutions \\ 
+      $\hat{r}_t^{MLE} = \log{I_t} - \log{I_{t - 1}}$. Note that for this paper, we assume that 
+      $I_t > 0$ by increasing each $I_t$ by some small tolerance $\epsilon$ (say $\epsilon = 1$) so we can safely take logarithms.
+
+      The MLE under Poisson assumption gives an unbiased estimator w.r.t. incidence, that is $E(I_{t - 1}e^{\hat{r}_t} | I_t) = I_t$. 
+      However, since we have assumed independence, the risk of this set of estimator $\hat{r}^{MLE}$ under square error is
+      \begin{align}
+        R(I_{-1}\hat{r}^{MLE}, I) = \sum_{t = 2}^T \mathbb{E}(I_t - I_{t - 1}e^{r_t})^2 = \sum_{t = 2}^T \text{Var}(I_t) = \sum_{t = 2}^T I_{t - 1}e^{r_t}
+      \end{align}
+
+      Here, $I_{-1}$ is the incidence vector shifted 1 day to the left, so that ${I_{-1}}_t$ matches $I_{t + 1}$. 
+      Accordingly, the loss function sums from $t = 2$ as $t = 0$ data is assumed unavailable.
+      Since incidence will be non-negative for non-trivial epidemics, and similarly growth rate will not be strictly negative, as $T \to \infty$, 
+      this risk function will blow up to infinity. This is because each $\hat{r}_t^{MLE}$ is fit individually, 
+      which gives unbiasedness but increases variance for $r^{MLE}$ as a whole. Moreover, based on the incidence curve, we can very well get $\hat{r}_t^{MLE}$ jumping around, 
+      leading to an incredibly unsmooth estimator, as shown in (FIGURE). 
+      
+      As such, our goal is decrease the estimator variance by inducing some (hopefully small) level of bias. 
+      Our proposed method is to add a smoothing function on the parameters themselves. This is opposed to 
+      \cref{eq: rt} which smooths the data. The method is analogous to the \textit{rtestim} method of estimating $R_t$ (Liu et al., 2024).
+      Functionally, we are applying a penalty on the differences in growth rates and adding it to the Poisson loss
+      from \cref{rt: MLE}. We get the smoothed estimator in \cref{rt: smooth}
+      \begin{align} \label{rt: smooth}
+          (\hat{r}_1^{lambda},\dots,\hat{r}_T^{lambda}) &= \argmin{r \in \mathbb{R}^T} \sum_{t = 2}^T [I_{t - 1}e^{r_t} - I_t(\log{I_{t - 1}} + r_t)] \\
+          &\qquad + \lambda_1 \sum_{t = 2}^T e^{(r_t - r_{t - 1})^2} + \lambda_2 \sum_{t = 3}^T e^{(r_t - 2r_{t - 1} + r_{t -2})^2}
+      \end{align}
+
+      The corresponding derivative of this objective function $\ell$ in \cref{rt: deriv} is not directly solvable for $\hat{r}_t^{lambda}$, 
+      but note that the second derivative is strictly positive on an assumed sample space (appendix) and so $r\hat{r}_t^{lambda}$ can be solved
+      with pre-existing convex optimization methods. 
+
+      \begin{equation} \label{rt: deriv}
+          \frac{\partial \ell(r; I)}{\partial r_t} = I_{t - 1}e^{r_t} - I_t + e^{(r_t - r_{t - 1})^2} (2(r_t - r_{t - 1})) 
+          - e^{(r_{t+1} - r_{t})^2} (2(r_{t+1} - r_{t}))
+      \end{equation}
+
+      At a high level, the solution to \cref{rt: smooth} will smooth the estimated parameters in 2 ways. The first penalty term $e^{(r_t - r_{t - 1})^2}$ controls
+      the magnitude of the first difference in growth rates $r_t - r_{t - 1}$, which ensures there are no big jumps in growth rate between days. 
+      The second penalty term $e^{(r_t - 2r_{t - 1} + 2r_{t - 2})^2}$ controls
+      the magnitude of the second differences $r_t - 2r_{t - 1} + 2r_{t - 2} = (r_t - r_{t - 1}) - (r_{t - 1} - r_{t - 2})$, 
+      which ensures that concavity is not constantly changing. There is no practical benefit to taking exponents, but is is done to maintain the same scale 
+      for growth rate as in the Poisson rate. Similarly, we could take absolute differences rather than squared differences. $\lambda_1, \lambda_2$ are 
+      hyperparameters that would be tuned using cross-validation when modelling $\hat{r}_t$.
+
+      As a motivating example, we consider a single simulated epidemic, under the same conditions as \cref{fig: paper}. The figures show the estimators (in blue)
+      of the true growth rate (in black). Plot a) models $\hat{r}^{MLE}$ using \cref{rt: MLE}, plot b) models $\hat{r}$ with first difference penalized, 
+      and plot c) models $\hat{r}$ with first and second differences penalized as in \cref{rt: smooth}. From the plots we can see that the desired properties 
+      we mentioned above are present as first and second differences successfully control frequent changes in magnitude and concavity respectively, 
+      leading to a smooth estimator. It turns out the MSE of this estimator is lower than the MSE using the SG filter in \cref{fig: paper}.
+
+      \begin{figure}[h]
+        \includegraphics[width = \linewidth]{estimate_growthrate.pdf}
+        \caption{asd}
+        \label{fig: smoothrt}
+      \end{figure}
+
+      To move this proposal forward, there a couple main ideas to explore:
+      \begin{enumerate}
+          \item Determine the implementation details of the estimation method. Details to examine include which specific penalty function to apply and
+          how to solve \cref{rt: smooth} numerically. The above proposal uses first and second differences, but it may be that penalizing higher order
+          differences or only using 1 penalization term reduces MSE. There should be consideration for whether absolute differences can be used
+          over squared differences as in (Liu et al., 2024) but that is a more difficult optimization to solve. The example in \cref{fig: smoothrt}
+          uses R built-in \textit{optim} function, but other implementations can likely increase convergence speeds and accuracy.
+          \item Compare parameter based smoothing (our method) versus data based smoothing (PTD and \cref{eq: rt}) in terms of MSE, smoothness, and 
+          other statistical measures. It is also worth examining how our method does with real data, which will exhibit greater variance in incidence numbers,
+          in terms of estimator smoothness. Furthermore, with noisy data, is it plausible to smooth both the data and the estimator, i.e. run our method
+          on smoothed data.
+          \item Consider the claims made in PTD with our new method, that does not rely on functional assumptions. Evaluate what underlying assumptions are 
+          present and how they relate to the estimation of $\hat{R}_t$ as PTD do by comparing SG filter and infectiousness kernel.
+      \end{enumerate}
+
+
+
+
+
 
   \section{Project Report} 
+      To substantiate the findings in PTD, we will do a series of computational experiments to first verify their claims, 
+      and then discover conditions under which $R_t$ and $r_t$ fail to accurately model the epidemic. Since true $R_t$ values are
+      near impossible to determine from real, we use simulated epidemics. In this section, we conduct (INSET NUMBER) empirical 
+      experiments to better understand model performance under various epidemic conditions. To do this, we consider the 
+      following models (with generation time distribution $\text{Gamma}(2.7066, 2.7066 / 15.3)$):
+      \begin{enumerate}
+        \item True $R_t$ following sinusoidal curve
+        \item True epidemic as above but $\hat{R}_t$ estimated using generation time distribution with $\frac{1}{3}$ to true mean
+        \item True $R_t$ follwing piecewise constant
+      \end{enumerate}
+
+      To generate true (simulated) incidence and infectiousness, we iteratively compute $\Lambda_t$ from $I_{1},\dots,I_{t - 1}$ and 
+      $\{w_j\}_{j=0}^\infty$, and then $I_t$ from $R_t$ and $\Lambda_t$ as in the renewal model in \cref{eq: Rt}. To estimate $\hat{R}_t$
+      PTD uses \textit{EpiEstim}, a Bayesian method that estimates the posterior as in (APPENDIX) and smooths the resulting estimates.
+      We will use \textit{rtestim} (Liu et al., 2024), a frequentist approach which fits a penalized spline with Poisson loss and $\ell_1$ penalty on $\log{R_t}$, and solves with proximal Newton method.
+      The objective function in this optimization problem is
+
+      \begin{equation} \label{rtestim}
+        \hat{\theta} = \argmin_{\theta \in \mathbb{R}^t} \Lambda^T \exp{\theta} - I^T\theta + \lambda \Vert\ D^{k+1} \theta \Vert\_1
+      \end{equation}
+      Here, $\theta = \log{R}$, $\Lambda, R, I \in \mathbb{R}^t$  are the respective infectiousness, reproduction rate, and incidences across $t$ time-steps, $D$ is the divided differences matrix, and $\lambda$ is a hyperparameter that controls smoothness. 
+      \textit{rtestim} tunes $\lambda$ across a grid of possible values, and $\lambda_{min}$ that minimizes cross validation error is used in the following results. 
+      (Liu et al., 2024) show that \textit{rtestim} estimates $\hat{R}_t$ at least as well \textit{EpiEstim} with respect to Kullback Leibler (KL)  Divergence.
+
+      To quantify prediction accuracy of $\hat{R}_t$ and $\hat{r}_t$, we use KL divergence and mean squared error respectively over $t = 1,\dots,T$, as shown in \cref{acc}.
+      KL divergence is used as distance measure becauase it handles the non-negativity of $R_t$ and models the Poisson assumption 
+      used in \textit{rtestim} and \cref{eq: Rt} (Liu et al., 2024).
+
+      \begin{equation} \label{acc}
+        D_{KL}(R, \hat{R}) = \KL(R \Vert\ \hat{R}) = \sum_{t = 1}^T \lambda_t \left( R_t \log{\frac{R_t}{\hat{R}_t}} + \hat{R}_t - R_t \right) \quad 
+        D_{MSE}(r, \hat{r}) = \sum_{t = 1}^T (r_t - \hat{r}_t)^2
+      \end{equation}
+
+      For a simulated epidemic, we wish to show that $\hat{R}_t$ and $\hat{r}_t$ accurately estimate their respective rates. Moreover, we wish to substantiate PTD's claim
+      that total infectiousness suffices as a smoothing filter, hence SG filters implicitly forms a SG filter.
+      We take the true instantaneous reproduction rate $R_t = 1.3 + 1.2\sin{\frac{\pi t}{60}}$ and generation time distribution $\text{Gamma}(2.7066, 2.7066 / 15.3)$. 
+      This reproduces the first example in PTD, with results are reported in \cref{fig: paper}. From subplots a) and b), it is clear that $\hat{R}_t$ and $\hat{r}_t$ have the shape and convey information, 
+      that is $\hat{R}_t > 1 \iff \hat{r}_t > 0$ to signify when the epidemic is growing or shrinking. This is expected when we take $\hat{r}_t \ |\ \hat{R}_t$ from \cref{eq: rt-Rt}
+      but it also holdds for SG filters in this case. Subplot d) shows that the left-shifted $\Lambda_t$ is approximately equal to the smoothed incidence $S_t$, 
+      which in this example confirms PTD's claim. In this simulation the only assumptions we made on $\hat{r}_t$ is the use of the SG filter with moving window 
+      $2\tau + 1 = 31$ time-steps and cublic spline fits, hence the smoothing function $\mathbb{S}(t)$ functionally approximates the generation time distribution.
+
+      \begin{figure}[h]
+        \includegraphics[width = \linewidth]{epi_paper.pdf}
+        \caption{asd}
+        \label{fig: paper}
+      \end{figure}
+
+      The first deviation from satisfactory conditions is to use a misspecified generation time distribution, as done in PTD. This is quite reasonable in reality as it is
+      difficult to assign the generation time distribution due to not observing true incidence of infection and using cases to estimate. 
+      This is specially prominent early in an epidemic when there is a lack of data to estimate the generation time distribution and basing a prior on other epidemics is risky. 
+      We would assume that the estimates for $R_t$ under these conditions would be poor because $\Lambda_t$ is dependent on generation time distribution and since we are still
+      using the true incidence, from \cref{eq: Rt} $\hat{R}_t$ must necessarily deviate from the true $R_t$. 
+      In our case take $\{w_j^{misspec}\}_{j=0}^\infty \sim \text{Gamma}(2.7066, 2.7066 / 15.3 * 3)$, which has $\frac{1}{3}$ the expected value of the true distribution in \cref{fig: paper}. 
+      In \cref{fig: misspec} we see that $\hat{R}_t$ is a very poor estimator w.r.t. KL divergence,
+      However $\hat{r}_t \ |\ \hat{R}_t$, i.e.$\hat{r}_t$ derived from $\{w_j^{misspec}\}_{j=0}^\infty$ and the same (poor) $\hat{R}_t$, performs well w.r.t. MSE. 
+      In fact, $D_{KL}(R, \hat{R}^{misspec}) \approx 310$ whereas $D_{KL}(R, \hat{R}) \approx 24$, an over tenfold difference, but $D_{MSE}(r, \hat{r}) \approx 0.29$ is close 
+      (at least in absolute terms) to $D_{MSE}(r, \hat{r}) = 0.09$. 
+
+      \begin{figure}[h]
+        \includegraphics[width = \linewidth]{epi_misspec.pdf}
+        \caption{asd}
+        \label{fig: misspec}
+      \end{figure}
+
+      
+      
+
+
+
+  \section{test}
     We made amazing contributions to the world of musical fractal pasta 
     \citep{McDonald2017,Tibshirani2013}. We use Natbib, so be sure to use
     \citep{Stein1981} for parenthetical references. Or you can say, according to
