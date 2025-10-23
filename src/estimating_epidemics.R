@@ -2,13 +2,14 @@ library(rtestim)
 library(ggplot2)
 library(signal)
 library("gridExtra")
+library(ggpubr)
 
 
 ##Simulated epidemic scenarios
 get_R_true <- function(scen_num, n_days){
   R_true <- c() #true instantaneous reproduction numbers
   if(scen_num == 1){ #piecewise constant
-    R_true <- c(rep(2, 100), rep(3, 100), rep(0.5, n_days - 200))
+    R_true <- c(rep(1.2, 100), rep(1.7, 100), rep(0.5, n_days - 200))
   }
   else if(scen_num == 2){ #sinusoidal
     R_true <- 1.3 + 1.2 * sin(pi * seq(1, n_days, by = 1) / 60)
@@ -19,7 +20,8 @@ get_R_true <- function(scen_num, n_days){
   }
   else if(scen_num == 4){
     #R_true <- c(1.5 + 0.01 * seq(1, 150, 1), 3 - 0.01 * seq(1, 150, 1))
-    R_true <- rep(1.2, 300) + rep(c(rep(0, 55), rep(0.5, 5)), 5)
+    R_true <- c(seq(1, 100, 1) / 200 + sin(pi * seq(1, 100, 1) / 20 )/10 + 1.5, 
+                rep(0.8, 100), exp(0.005 * seq(1, 100, 1)) * 0.8)
   }
   return(R_true)#list('R_true' = R_true, 'scen' = scen_num))
 }
@@ -58,19 +60,20 @@ setup <- function(scen_num, n_days, dist_param, init_inc, offset){
 }
 
 ##Run rtestim package to get optimal (tuned) fit
-run_rtestim <- function(incidence, dist_param){
-  rtestim_lambda <- cv_estimate_rt(incidence, nfold = 5, korder = 3, dist_gamma = c(dist_param[1], 1 / dist_param[2]))
+run_rtestim <- function(incidence, dist_param, order){
+  rtestim_lambda <- cv_estimate_rt(incidence, nfold = 5, korder = order, dist_gamma = c(dist_param[1], 1 / dist_param[2]))
   rtestim_fit <- fitted(rtestim_lambda, 'lambda.min')
   rtestim_ci <- confband(rtestim_lambda, lambda = 'lambda.min')
   return(list('lambda' = rtestim_lambda$lambda.min, 'fit' = rtestim_fit, 'ci' = rtestim_ci))
 }
+test_for_daniel <- simulate_epidemic(n_days, dist_param, init_inc, 0, offset, 1, 0, "")
 
 ##Compute r_t from R_t from Wallinga Lipsitch
 get_rt <- function(R, dist_param){
   return((R^(1 / dist_param[1]) - 1) * dist_param[2])
 }
 
-simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, save_plot, file_name){
+simulate_epidemic <- function(n_days, dist_param, init_inc, order, offset, scen_num, save_plot, file_name){
   ##Derive true values and model estimates
   epi_vals <- setup(scen_num, n_days, dist_param, init_inc, offset) #get true values
   r_lam <- diff(log(epi_vals$lam_true)) #r_t | lam_t as pairwise difference of log(lam_t)
@@ -78,7 +81,7 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
   #get the true r_t from true R_t based on same model assumptions
   r_true <- get_rt(epi_vals$R_true, dist_param)
   #esimate Rt using rtestim package
-  R_est <- run_rtestim(epi_vals$I_true, dist_param)
+  R_est <- run_rtestim(epi_vals$I_true, dist_param, order)
   #smoothed incidence using SG filter (window 50, cubic fit)
   I_emp <- pmax(sgolayfilt(epi_vals$I_true, p = 3, n = 31), rep(0.00001, n_days - offset)) 
   r_emp <- sgolayfilt(diff(log(I_emp)), p = 3, n = 91) #r_t | S_t from smoothed incidence
@@ -96,7 +99,7 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
     scale_color_manual(values = c('R_true' = 'black', 'R_estimate' = 'blue')) + 
     theme(legend.position = "bottom") +
     labs(title = 'Estimating Instantaneous \n Reproduction Number', x = 'Days', y = 'Reproduction Number', 
-         color = '', tag = 'a)')
+         color = '')
   
   ##Plot 2: estimating growth rates 3 ways
   g2 <- ggplot() + 
@@ -109,7 +112,7 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
     scale_color_manual(values = c('r_true' = 'black', 'r_t | S_t' = 'blue', 'r_t | lam_t' = 'red', 'r_t | R_t' = 'green')) +
     theme(legend.position = "bottom") +
     labs(title = 'Estimating Instantaneous \n Growth Rate',x = 'Days', y = 'Growth Rate', 
-         color = '', tag = 'b)')
+         color = '')
   
   ##Plot 3: incidence
   #Here, we use I_t coming from a Poisson distribution with rate (R_t lam_t)
@@ -119,7 +122,7 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
     scale_color_manual(values = c('I_true' = 'black', 'I_t | R_t' = 'blue')) + 
     theme(legend.position = "bottom") +
     labs(x = 'Days', y = 'Incidence of Infection', title = 'Estimating Incidence \n of Infection', 
-         color = '', tag = 'c)')
+         color = '')
   
   ##Plot 4: smoothed incidence curves
   g4 <- ggplot(data.frame(x = seq(offset + 1, n_days - 2 * tau, 1), y = epi_vals$I_true[1:(n_days - offset - 2 * tau)], 
@@ -130,7 +133,7 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
     scale_color_manual(values = c('I_t' = 'black', 'S_t' = 'blue', 'lam_{t + 2tau}' = 'red')) + 
     theme(legend.position = "bottom") +
     labs(x = 'Days', y = 'Incidence of Infection', title = 'Smoothing Incidence \n of Infection', 
-         color = '', tag = 'd)')
+         color = '')
   
   print(g1)
   print(g2)
@@ -138,18 +141,24 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, offset, scen_num, sa
   print(g4)
   
   if(save_plot == 1){
-    to_plot <- grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
+    #to_plot <- grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
+    to_plot <- ggarrange(g1, g2, g3, g4, nrow = 2, labels = c('a)', 'b)', 'c)', 'd)'))
     ggsave(file_name, to_plot)
   }
   if(save_plot == 2){
-    to_plot <- grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
+    #to_plot <- grid.arrange(g1, g2, ncol = 2)
+    #to_plot <- ggarrange(g1, g2, nrow = 1, labels = c('a)', 'b)'))
+    to_plot <- ggarrange(g1, g2, nrow = 1, labels = c('c)', 'd)'))
     ggsave(file_name, to_plot)
   }
   
   return(list('R_true' = epi_vals$R_true, 'I_true' = epi_vals$I_true, 'r_est' = r_Rt,
               'lam_true' = epi_vals$lam_true,'r_true' = r_true, 'R_est' = R_est$fit))
 }
-test <- simulate_epidemic(n_days, dist_param, init_inc, offset, 4, 0, '')
+test <- simulate_epidemic(n_days, dist_param, init_inc, 3, offset, 4, 2, "weird_fn_3.pdf")
+
+aa <- estimate_rt(epi1$I_true, korder = 0, dist_gamma = c(dist_param[1], 1 / dist_param[2]))
+plot(aa)
 
 kl <- function(R_true, R_est, lambda_true){
   return(sum(lambda_true * (R_true * log(R_true / R_est) + R_est - R_true)))
@@ -166,10 +175,11 @@ n_days <- 300
 dist_param <- c(2.7066, 2.7066 / 15.3)
 init_inc <- 10
 offset <- 20
+order <- 3
 scen_num <- 2
 
 setwd("/Users/JZ/Desktop/Qualifying-Paper-1/report/fig")
-epi1 <- simulate_epidemic(n_days, dist_param, init_inc, offset, scen_num, 1, 'epi_paper.pdf')
+epi1 <- simulate_epidemic(n_days, dist_param, init_inc, order, offset, scen_num, 1, 'epi_paper.pdf')
 
 kl(epi1$R_true, epi1$R_est, epi1$lam_true)
 mse(epi1$r_true, epi1$r_est)
@@ -179,7 +189,7 @@ mse(epi1$r_true, epi1$r_est)
 dist_param_misspec <- c(2.7066, 2.7066 / 15.3 * 3) #misspecify gamma mean as 1/3 of true mean
 dist_misspec <- get_dist_vals(dist_param_misspec, n_days)
 
-Rt_misspec <- run_rtestim(epi1$I_true, dist_param_misspec)
+Rt_misspec <- run_rtestim(epi1$I_true, dist_param_misspec, order)
 
 kl(epi1$R_true, Rt_misspec$fit, epi1$lam_true)
 mse(epi1$r_true, get_rt(Rt_misspec$fit, dist_param_misspec))
@@ -207,10 +217,6 @@ gr_misspec <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi1$r_true,
 
 to_plot_misspec <- grid.arrange(irr_misspec, gr_misspec, ncol = 1, nrow = 2)
 ggsave('epi_misspec.pdf', to_plot_misspec)
-
-
-test_epi <- simulate_epidemic(n_days, dist_param, init_inc, offset, 1, 0, '')
-kl(test_epi$R_true, test_epi$R_est, test_epi$lam_true)
 
 ##Penalized r_t - mini proposal
 
