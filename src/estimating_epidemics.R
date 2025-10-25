@@ -3,13 +3,14 @@ library(ggplot2)
 library(signal)
 library("gridExtra")
 library(ggpubr)
+library(latex2exp)
 
 
 ##Simulated epidemic scenarios
 get_R_true <- function(scen_num, n_days){
   R_true <- c() #true instantaneous reproduction numbers
   if(scen_num == 1){ #piecewise constant
-    R_true <- c(rep(1.2, 100), rep(1.7, 100), rep(0.5, n_days - 200))
+    R_true <- c(rep(2, 100), rep(0.7, 100), rep(1.3, n_days - 200))
   }
   else if(scen_num == 2){ #sinusoidal
     R_true <- 1.3 + 1.2 * sin(pi * seq(1, n_days, by = 1) / 60)
@@ -94,12 +95,13 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, order, offset, scen_
   g1 <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi_vals$R_true, z = R_est$fit)) +
     geom_line(aes(x = x, y = y, colour = 'R_true')) +
     geom_line(aes(x = x, y = z, colour = 'R_estimate')) +
-    geom_line(aes(x = x, y = R_est$ci$`2.5%`, colour = 'R_estimate'), linetype = 'dotted') +
-    geom_line(aes(x = x, y = R_est$ci$`97.5%`, colour = 'R_estimate'), linetype = 'dotted') +
-    scale_color_manual(values = c('R_true' = 'black', 'R_estimate' = 'blue')) + 
+    #geom_line(aes(x = x, y = R_est$ci$`2.5%`, colour = 'R_estimate'), linetype = 'dotted') +
+    #geom_line(aes(x = x, y = R_est$ci$`97.5%`, colour = 'R_estimate'), linetype = 'dotted') +
+    scale_color_manual(values = c('R_true' = 'black', 'R_estimate' = 'blue')) +
     theme(legend.position = "bottom") +
-    labs(title = 'Estimating Instantaneous \n Reproduction Number', x = 'Days', y = 'Reproduction Number', 
+    labs(title = 'Estimating Instantaneous \n Reproduction Number', x = 'Days', y = 'Reproduction Number',
          color = '')
+
   
   ##Plot 2: estimating growth rates 3 ways
   g2 <- ggplot() + 
@@ -107,8 +109,8 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, order, offset, scen_
     geom_line(aes(x = seq(offset + tau + 1, n_days, 1), y = r_emp[1:(length(r_emp) - tau + 1)], colour = 'r_t | S_t')) +
     geom_line(aes(x = seq(offset + 1, n_days - tau, 1), y = r_lam[tau:length(r_lam)], colour = 'r_t | lam_t')) +
     geom_line(aes(x = seq(offset + 1, n_days, 1), y = r_Rt, colour = 'r_t | R_t')) +
-    geom_line(aes(x = seq(offset + 1, n_days, 1), y = r_upperCI, colour = 'r_t | R_t'), linetype = 'dotted') +
-    geom_line(aes(x = seq(offset + 1, n_days, 1), y = r_lowerCI, colour = 'r_t | R_t'), linetype = 'dotted') +
+    #geom_line(aes(x = seq(offset + 1, n_days, 1), y = r_upperCI, colour = 'r_t | R_t'), linetype = 'dotted') +
+    #geom_line(aes(x = seq(offset + 1, n_days, 1), y = r_lowerCI, colour = 'r_t | R_t'), linetype = 'dotted') +
     scale_color_manual(values = c('r_true' = 'black', 'r_t | S_t' = 'blue', 'r_t | lam_t' = 'red', 'r_t | R_t' = 'green')) +
     theme(legend.position = "bottom") +
     labs(title = 'Estimating Instantaneous \n Growth Rate',x = 'Days', y = 'Growth Rate', 
@@ -141,24 +143,18 @@ simulate_epidemic <- function(n_days, dist_param, init_inc, order, offset, scen_
   print(g4)
   
   if(save_plot == 1){
-    #to_plot <- grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
     to_plot <- ggarrange(g1, g2, g3, g4, nrow = 2, labels = c('a)', 'b)', 'c)', 'd)'))
     ggsave(file_name, to_plot)
   }
   if(save_plot == 2){
-    #to_plot <- grid.arrange(g1, g2, ncol = 2)
-    #to_plot <- ggarrange(g1, g2, nrow = 1, labels = c('a)', 'b)'))
-    to_plot <- ggarrange(g1, g2, nrow = 1, labels = c('c)', 'd)'))
+    to_plot <- ggarrange(g1, g2, nrow = 1, labels = c('a)', 'b)'))
     ggsave(file_name, to_plot)
   }
   
   return(list('R_true' = epi_vals$R_true, 'I_true' = epi_vals$I_true, 'r_est' = r_Rt,
-              'lam_true' = epi_vals$lam_true,'r_true' = r_true, 'R_est' = R_est$fit))
+              'lam_true' = epi_vals$lam_true,'r_true' = r_true, 'R_est' = R_est$fit, 
+              'g1' = g1, 'g2' = g2, 'g3' = g3, 'g4' = g4))
 }
-test <- simulate_epidemic(n_days, dist_param, init_inc, 3, offset, 4, 2, "weird_fn_3.pdf")
-
-aa <- estimate_rt(epi1$I_true, korder = 0, dist_gamma = c(dist_param[1], 1 / dist_param[2]))
-plot(aa)
 
 kl <- function(R_true, R_est, lambda_true){
   return(sum(lambda_true * (R_true * log(R_true / R_est) + R_est - R_true)))
@@ -170,6 +166,7 @@ mse <- function(r_true, r_est){
 
 
 ##Initialize parameters
+set.seed(88)
 n_days <- 300
 #dist_param <- c((1 / 0.65)^2, (1 / 0.65)^2 / 6.5)
 dist_param <- c(2.7066, 2.7066 / 15.3)
@@ -179,7 +176,7 @@ order <- 3
 scen_num <- 2
 
 setwd("/Users/JZ/Desktop/Qualifying-Paper-1/report/fig")
-epi1 <- simulate_epidemic(n_days, dist_param, init_inc, order, offset, scen_num, 1, 'epi_paper.pdf')
+epi1 <- simulate_epidemic(n_days, dist_param, init_inc, order, offset, scen_num, 0, 'epi_paper.pdf')
 
 kl(epi1$R_true, epi1$R_est, epi1$lam_true)
 mse(epi1$r_true, epi1$r_est)
@@ -194,7 +191,7 @@ Rt_misspec <- run_rtestim(epi1$I_true, dist_param_misspec, order)
 kl(epi1$R_true, Rt_misspec$fit, epi1$lam_true)
 mse(epi1$r_true, get_rt(Rt_misspec$fit, dist_param_misspec))
 
-##Plot 5: estimating reproduction numbers under misspecification of serial interval distribution
+##Plot 5: estimating reproduction numbers under misspecification of generation time distribution
 irr_misspec <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi1$R_true, z = epi1$R_est, w = Rt_misspec$fit)) +
   geom_line(aes(x = x, y = y, colour = 'R_true')) +
   geom_line(aes(x = x, y = z, colour = 'R_est')) +
@@ -202,8 +199,9 @@ irr_misspec <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi1$R_true
   geom_line(aes(x = x, y = Rt_misspec$ci$`2.5%`, colour = 'R_est (misspecified)'), linetype = 'dotted') +
   geom_line(aes(x = x, y = Rt_misspec$ci$`97.5%`, colour = 'R_est (misspecified)'), linetype = 'dotted') +
   scale_color_manual(values = c('R_true' = 'black', 'R_est' = 'blue', 'R_est (misspecified)' = 'red')) + 
-  labs(title = 'Estimating Instantaneous Reproduction Number under \n Misspecied Serial Interval Distribution', 
-       x = 'Days', y = 'Reproduction Number', color = 'Reproduction Number')
+  theme(legend.position = "bottom") +
+  labs(title = 'Estimating Instantaneous Reproduction Number \n under Misspecied GTD', 
+       x = 'Days', y = 'Reproduction Number', color = '', tag = 'a')
 
 ##Plot 6: estimating growth rates under misspecification of serial interval distribution
 gr_misspec <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi1$r_true, z = get_rt(Rt_misspec$fit, dist_param_misspec), 
@@ -213,10 +211,34 @@ gr_misspec <- ggplot(data.frame(x = seq(offset + 1, n_days, 1), y = epi1$r_true,
   geom_line(aes(x = x, y = w, colour = 'r_t | R_t'), linetype = 'dotted') +
   geom_line(aes(x = x, y = v, colour = 'r_t | R_t'), linetype = 'dotted') +
   scale_color_manual(values = c('r_true' = 'black', 'r_t | R_t' = 'blue')) +
-  labs(title = 'Estimating Instantaneous Growth Rate',x = 'Days', y = 'Growth Rate', color = 'Growth Rate')
+  theme(legend.position = "bottom") +
+  labs(title = 'Estimating Instantaneous Growth Rate',x = 'Days', y = 'Growth Rate', color = '', tag = 'b')
 
-to_plot_misspec <- grid.arrange(irr_misspec, gr_misspec, ncol = 1, nrow = 2)
+to_plot_misspec <- ggarrange(irr_misspec, gr_misspec, ncol = 2, labels = c('a)', 'b)'))
 ggsave('epi_misspec.pdf', to_plot_misspec)
+
+##Plot Piecewise Constant Epidemic
+pc_0 <- simulate_epidemic(n_days, dist_param, init_inc, 0, offset, 1, 0, "pc_0.pdf")
+pc_3 <- simulate_epidemic(n_days, dist_param, init_inc, 3, offset, 1, 0, "pc_3.pdf")
+
+to_plot_pc <- ggarrange(pc_0$g1, pc_0$g2, pc_3$g1, pc_3$g2, ncol = 2, nrow = 2, labels = c('a)', 'b)', 'c)', 'd)'))
+ggsave('epi_pc.pdf', to_plot_pc)
+
+kl(pc_0$R_true, pc_0$R_est, pc_0$lam_true)
+kl(pc_3$R_true, pc_3$R_est, pc_3$lam_true)
+mse(pc_0$r_true, pc_0$r_est)
+mse(pc_3$r_true, pc_3$r_est)
+
+##Plot Composite Epidemic
+comp_1 <- simulate_epidemic(n_days, dist_param, init_inc, 1, offset, 4, 0, "comp_0.pdf")
+comp_3 <- simulate_epidemic(n_days, dist_param, init_inc, 3, offset, 4, 0, "comp_3.pdf")
+
+to_plot_comp <- ggarrange(comp_1$g1, comp_1$g2, comp_3$g1, comp_3$g2, ncol = 2, nrow = 2, labels = c('a)', 'b)', 'c)', 'd)'))
+ggsave('epi_comp.pdf', to_plot_comp)
+
+kl(comp_1$R_true, comp_1$R_est, comp_1$lam_true)
+kl(comp_3$R_true, comp_3$R_est, comp_3$lam_true)
+
 
 ##Penalized r_t - mini proposal
 
@@ -287,44 +309,6 @@ for(l in 1:length(lambda_test)){
   lambda_mse[l] <- mse(obj$par[1:(n_days - offset - tau)], epi1$r_true[(tau + 1):(n_days - offset)])
 }
 data.frame(x = lambda_test, mse = lambda_mse)
-
-
-
-#TESTING
-
-#compare lambda and s
-a = rev(get_dist_vals(dist_param, 300))[1:51]
-plot(seq(1, 51, 1), a/sum(a), ylim = c(-0.05, 0.1))
-points(seq(1, 40, 1), rev(sgolay(n = 51, p = 3)[26,1:40]), col = 'red')
-
-s = sgolayfilt(epi1$I_true, n = 51, p = 3)
-t(epi1$I_true[100:150]) %*% sgolay(n = 51, p = 3)
-
-plot(diff(epi1$lam_true[16:280]))
-points(diff(s[1:265]), col = 'red')
-
-test <- diff(log(epi_vals$I_true + 1))
-a <- epi_vals$I_true
-#test <- ifelse(a[1:279] == 0, 1, ifelse(a[2:280] == 0, -1, log(a[2:280]) - log(a[1:279]) )) 
-#test
-plot(seq(tau + 1, n_days - offset, 1), sgolayfilt(test, p = 3, n = 51)[1:(n_days - offset - tau)], type = 'l')
-lines(seq(1, n_days - offset - 1, 1), epi1$r_true[2:280])
-
-#james stein
-e = epi1$I_true + 1
-si = sum(e^2)
-n = length(e)
-vari = var(e)
-tau = 8
-#jsr = (1 - (ni - 2) * vari / ni / si) * e
-jsr = (1 - vari / si) * e
-
-s = sgolayfilt(log(jsr[2:280] / e[1:279]), p = 3, n = 51)[1:(n_days - offset - tau)]
-s1 =  sgolayfilt(diff(log(e)), p = 3, n = 51)[1:(n_days - offset - tau)]
-plot(seq(tau + 1, n_days - offset, 1), s, type = 'l')
-lines(seq(1, n_days - offset - 1, 1), epi1$r_true[2:280])
-lines(seq(tau + 1, n_days - offset, 1), s1, type = 'l', col = 'red')
-mse(epi1$r_true[(tau+1):280],s)
 
 
 
